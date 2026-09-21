@@ -1,6 +1,6 @@
 {
   "model": "jev-1.13.0",
-  "thresholds": {"act": 0.70, "overlap": 0.50},
+  "thresholds": {"act": 0.70, "overlap": 0.70},
   "questions": {
     "kind": {
       "type": "choice",
@@ -15,22 +15,22 @@
     },
     "surface": {
       "type": "choice",
-      "instructions": "If the work in `request` and `context` is carried out, which part of the carbonorm product does it change?",
+      "instructions": "If the work that the last element of `messages` asks for, read together with `context`, is carried out, which part of the product does it change?",
       "criteria": {
-        "internal_tooling": "only CI workflows, deploy automation, GitHub Actions runners, contributor knowledge docs, test baselines or exemption files, generated process-graph artifacts, or scripts that users never see",
-        "product_facing": "behaviour that users see: the admin console UI, the tenant application UI, or the public API's responses and validation",
+        "internal_tooling": "only CI workflows, deploy automation, build or runner configuration, contributor or knowledge documentation, test baselines or exemption files, generated artifacts, or scripts that end users never see",
+        "product_facing": "behaviour that end users see: a user-facing or admin user interface, or a public API's responses and validation",
         "mixed_or_unclear": "both kinds, or the request does not describe a code change at all"
       }
     },
     "teammate_overlap": {
       "type": "noul",
       "instructions": {
-        "statement": "Carrying out the work in `request` and `context` would change one of the code areas listed in `teammate_areas`, which a teammate is currently working on.",
-        "note": "Only the areas literally listed count. CI, deploy automation, process-graph docs and impersonation are not in the list."
+        "statement": "Carrying out the work that the last element of `messages` asks for, read together with `context`, would change at least one of the code areas listed in `teammate_areas`, which a teammate is currently working on.",
+        "note": "Only areas literally listed in `teammate_areas` count. When `teammate_areas` is empty, the statement is false."
       },
       "criteria": {
-        "true": "the work changes Suppliers, Packaging, declarations, Regulation markets, admin roles and permissions, or the onboarding entry or market declaration flow",
-        "false": "the work changes none of those areas, or requests no code change"
+        "true": "the work changes code in an area named in `teammate_areas`",
+        "false": "`teammate_areas` is empty, the work changes none of the listed areas, or no code change is requested"
       }
     }
   }

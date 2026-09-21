@@ -4,9 +4,8 @@
 # Drives the public argv, stdin, and environment interface with a fake curl on
 # PATH, the same shape tests/fm-dispatch-resolve.test.sh uses: it records
 # argv, the request body it read from stdin, the header it read from file
-# descriptor 3, whether the secret reached its environment, and writes the
-# canned headers curl would have dumped, then answers with a canned
-# typesafe.ai response per call. No case touches the network, and the
+# descriptor 3, and whether the secret reached its environment, then answers
+# with a canned typesafe.ai response. No case touches the network, and the
 # absent-key case proves the tool makes no call at all.
 set -u
 
@@ -30,45 +29,36 @@ mkdir -p "$HOME_DIR" "$LOG"
 
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
-# Fake curl: records argv (minus the -o and -D targets), the stdin body, the
-# header read from fd 3, and one epoch-second line per call; answers with the
-# next code in FAKE_CURL_HTTP (the last code repeats), copying
-# FAKE_CURL_RESPONSE for a 200 and FAKE_CURL_ERROR_BODY otherwise, and writes
-# FAKE_CURL_RETRY_AFTER as a Retry-After header into the -D file when set.
+# Fake curl: records argv (minus the -o target), the stdin body, the header
+# read from fd 3, and one line per call; answers with FAKE_CURL_HTTP (default
+# 200), copying FAKE_CURL_RESPONSE for a 200 and FAKE_CURL_ERROR_BODY
+# otherwise.
 set -u
 if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ]; then
   printf 'curl:secret-present\n' >> "${CHILD_ENV_LOG:?}"
 else
   printf 'curl:clean\n' >> "${CHILD_ENV_LOG:?}"
 fi
-out='' hdr=''
+out=''
 while [ $# -gt 0 ]; do
   case "$1" in
     -o) out=$2; shift 2 ;;
-    -D) hdr=$2; shift 2 ;;
     *) printf '%s\n' "$1" >> "${FAKE_CURL_LOG:?}/argv"; shift ;;
   esac
 done
 cat > "$FAKE_CURL_LOG/body"
 cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
-date +%s >> "$FAKE_CURL_LOG/calls"
-n=$(wc -l < "$FAKE_CURL_LOG/calls" | tr -d ' ')
+printf 'call\n' >> "$FAKE_CURL_LOG/calls"
 if [ "${FAKE_CURL_FAIL:-0}" = 1 ]; then
   echo 'curl: (7) Failed to connect' >&2
   exit 7
 fi
-read -r -a codes <<<"${FAKE_CURL_HTTP:-200}"
-idx=$(( n - 1 ))
-[ "$idx" -lt "${#codes[@]}" ] || idx=$(( ${#codes[@]} - 1 ))
-code=${codes[$idx]}
-printf 'HTTP/1.1 %s\r\ncontent-type: application/json\r\n' "$code" > "$hdr"
+code=${FAKE_CURL_HTTP:-200}
 if [ "$code" = 200 ]; then
   cp "${FAKE_CURL_RESPONSE:?}" "$out"
 else
-  [ -z "${FAKE_CURL_RETRY_AFTER:-}" ] || printf 'Retry-After: %s\r\n' "$FAKE_CURL_RETRY_AFTER" >> "$hdr"
   cp "${FAKE_CURL_ERROR_BODY:?}" "$out"
 fi
-printf '\r\n' >> "$hdr"
 printf '%s' "$code"
 SH
 chmod +x "$FAKEBIN/curl"
@@ -124,6 +114,10 @@ pass "absent key is reported explicitly with no request"
 reset_log
 TYPESAFE_API_KEY=$KEY run code out err --bogus
 expect_code 2 "$code" "unknown flag exits 2"
+TYPESAFE_API_KEY=$KEY run code out err --model jev-preview 'hatayı düzelt'
+expect_code 2 "$code" "--model is not a flag"
+TYPESAFE_API_KEY=$KEY run code out err --json 'hatayı düzelt'
+expect_code 2 "$code" "--json is not a flag"
 TYPESAFE_API_KEY=$KEY run code out err < /dev/null
 expect_code 2 "$code" "empty stdin exits 2"
 assert_contains "$err" 'request text required' "empty request names the missing input"
@@ -178,12 +172,6 @@ assert_equals '""' "$(jq -c .state.context <<<"$body")" "context defaults to emp
 assert_equals '[]' "$(jq -c .state.teammate_areas <<<"$body")" "areas default to empty"
 pass "stdin carries the request when no positional or --message is given"
 
-# --- --model overrides the pin for one call --------------------------------------
-reset_log
-TYPESAFE_API_KEY=$KEY run code out err --model jev-preview 'hatayı düzelt'
-assert_equals 'jev-preview' "$(jq -r .model < "$LOG/body")" "--model overrides the pinned model"
-pass "--model overrides the pin"
-
 # --- verdict mapping around the act and overlap thresholds ----------------------
 verdict_case() {  # <kind-conf> <surface-conf> <noul> <expected kind line> <expected surface line> <expected overlap line>
   reset_log
@@ -194,30 +182,15 @@ verdict_case() {  # <kind-conf> <surface-conf> <noul> <expected kind line> <expe
   assert_contains "$out" "$5" "surface verdict at confidence $2"
   assert_contains "$out" "$6" "overlap verdict at noul $3"
 }
-verdict_case 0.7 0.69 0.5 'kind=scout confidence=0.7 verdict=act' 'surface=product_facing confidence=0.69 verdict=ask' 'teammate_overlap=0.5 verdict=yes near-threshold'
-verdict_case 0.71 0.7 0.49 'kind=scout confidence=0.71 verdict=act' 'surface=product_facing confidence=0.7 verdict=act' 'teammate_overlap=0.49 verdict=no near-threshold'
-verdict_case 0.69 0.99 0.65 'kind=scout confidence=0.69 verdict=ask' 'surface=product_facing confidence=0.99 verdict=act' 'teammate_overlap=0.65 verdict=yes near-threshold'
-verdict_case 0.2 0.2 0.66 'kind=scout confidence=0.2 verdict=ask' 'surface=product_facing confidence=0.2 verdict=ask' 'teammate_overlap=0.66 verdict=yes'
-assert_not_contains "$out" 'near-threshold' "0.66 is outside the near-threshold band"
-verdict_case 1 1 0.34 'kind=scout confidence=1 verdict=act' 'surface=product_facing confidence=1 verdict=act' 'teammate_overlap=0.34 verdict=no'
-assert_not_contains "$out" 'near-threshold' "0.34 is outside the near-threshold band"
+verdict_case 0.7 0.69 0.7 'kind=scout confidence=0.7 verdict=act' 'surface=product_facing confidence=0.69 verdict=ask' 'teammate_overlap=0.7 verdict=yes'
+verdict_case 0.71 0.7 0.69 'kind=scout confidence=0.71 verdict=act' 'surface=product_facing confidence=0.7 verdict=act' 'teammate_overlap=0.69 verdict=no'
+verdict_case 0.69 0.99 0.87 'kind=scout confidence=0.69 verdict=ask' 'surface=product_facing confidence=0.99 verdict=act' 'teammate_overlap=0.87 verdict=yes'
+verdict_case 0.2 0.2 0.56 'kind=scout confidence=0.2 verdict=ask' 'surface=product_facing confidence=0.2 verdict=ask' 'teammate_overlap=0.56 verdict=no'
+verdict_case 1 1 0.04 'kind=scout confidence=1 verdict=act' 'surface=product_facing confidence=1 verdict=act' 'teammate_overlap=0.04 verdict=no'
 pass "verdicts map at, above, and below the act and overlap thresholds"
 
-# --- --json: raw response plus verdicts -----------------------------------------
-reset_log
-write_response "$RESPONSE" ship 0.91 mixed_or_unclear 0.40 0.55
-TYPESAFE_API_KEY=$KEY run code out err --json 'hatayı düzelt'
-expect_code 0 "$code" "--json exits 0"
-assert_equals 'jev-1.13.0' "$(jq -r .model <<<"$out")" "--json keeps the raw model"
-assert_equals '0.91' "$(jq -r .answers.kind.confidence <<<"$out")" "--json keeps the raw answers"
-assert_equals 'act' "$(jq -r .verdicts.kind <<<"$out")" "--json adds the kind verdict"
-assert_equals 'ask' "$(jq -r .verdicts.surface <<<"$out")" "--json adds the surface verdict"
-assert_equals 'yes' "$(jq -r .verdicts.teammate_overlap <<<"$out")" "--json adds the overlap verdict"
-assert_equals 'true' "$(jq -r .verdicts.near_threshold <<<"$out")" "--json adds the near-threshold flag"
-pass "--json prints the raw response with verdicts added"
-
-# --- 401 and 422: exit 4, status and body on stderr, one call, no output --------
-for status in 401 422; do
+# --- 401, 422, 429, 529: exit 4, status and body on stderr, one call, no output --
+for status in 401 422 429 529; do
   reset_log
   FAKE_CURL_HTTP=$status TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
   expect_code 4 "$code" "HTTP $status exits 4"
@@ -231,29 +204,11 @@ FAKE_CURL_HTTP=401 TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
 assert_contains "$err" 'missing or invalid key' "401 is explained as the quick reference does"
 FAKE_CURL_HTTP=422 TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
 assert_contains "$err" 'body failed validation' "422 is explained as the quick reference does"
-pass "401 and 422 exit 4 with the status and body on stderr"
-
-# --- 429 with Retry-After: one retry, then the answer ---------------------------
-reset_log
-write_response "$RESPONSE" ship 0.91 internal_tooling 0.83 0.12
-FAKE_CURL_HTTP='429 200' FAKE_CURL_RETRY_AFTER=1 TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
-expect_code 0 "$code" "429 then 200 exits 0"
-assert_contains "$out" 'kind=ship confidence=0.91 verdict=act' "the retried answer is reported"
-assert_equals '2' "$(wc -l < "$LOG/calls" | tr -d ' ')" "429 is retried exactly once"
-first=$(sed -n 1p "$LOG/calls"); second=$(sed -n 2p "$LOG/calls")
-[ "$(( second - first ))" -ge 1 ] || fail "the retry waited for Retry-After (first $first, second $second)"
-
-reset_log
-FAKE_CURL_HTTP='429' FAKE_CURL_RETRY_AFTER=1 TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
-expect_code 4 "$code" "a second 429 exits 4"
-assert_contains "$err" 'request failed: HTTP 429 (rate limit' "429 is named after the retry"
-assert_equals '2' "$(wc -l < "$LOG/calls" | tr -d ' ')" "429 is never retried more than once"
-
-reset_log
-FAKE_CURL_HTTP='529 200' TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
-expect_code 0 "$code" "529 then 200 exits 0"
-assert_equals '2' "$(wc -l < "$LOG/calls" | tr -d ' ')" "529 is retried once without a Retry-After header"
-pass "429 and 529 are retried once honoring Retry-After"
+FAKE_CURL_HTTP=429 TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
+assert_contains "$err" 'rate limit' "429 is explained as the quick reference does"
+FAKE_CURL_HTTP=529 TYPESAFE_API_KEY=$KEY run code out err 'hatayı düzelt'
+assert_contains "$err" 'overloaded' "529 is explained as the quick reference does"
+pass "401, 422, 429, and 529 exit 4 with the status and body on stderr and no retry"
 
 # --- transport failure and malformed response ----------------------------------
 reset_log

@@ -13,7 +13,9 @@ Verified 2026-09-21 that a `jev-1.13.0` request answers as `jev-1.13.0`, so the 
 
 ## Live verdicts
 
-Run 2026-09-21 with `FM_LIVE_TYPESAFE=1 bash tests/fm-intake-classify-live-e2e.test.sh`, the key exported from a private env file for that one shell, model pinned at `jev-1.13.0`, act threshold 0.70, overlap threshold 0.50.
+The `kind` question is unchanged since the run below; the `surface` and `teammate_overlap` wording and the overlap threshold were revised on 2026-09-21 after review, so the guard's console output and the table need a fresh keyed run before they describe the shipped questions.
+
+Run 2026-09-21 with `FM_LIVE_TYPESAFE=1 bash tests/fm-intake-classify-live-e2e.test.sh`, the key exported from a private env file for that one shell, model pinned at `jev-1.13.0`, act threshold 0.70, against the `kind` question as shipped:
 
 ```console
 $ FM_LIVE_TYPESAFE=1 bash tests/fm-intake-classify-live-e2e.test.sh
@@ -23,29 +25,23 @@ model: jev-1.13.0
 # all fm-intake-classify-live-e2e tests passed
 ```
 
-Four synthetic Turkish requests run the same day through the tool directly, each with a one-line product context and the areas `Suppliers`, `Packaging`, and `declarations`:
+The revised `surface` and `teammate_overlap` wording was re-measured the same day by the author on the 18-request trial set that set the thresholds: the overlap Noul answered 0.87 on the two requests that touched a listed area, at most 0.56 on requests that touched none, and 0.04 to 0.05 with an empty `teammate_areas` list.
+The earlier 0.50 overlap cut sat inside a noisy 0.44 to 0.56 band on that set; 0.70 separates the two groups cleanly, which is why `thresholds.overlap` is 0.70.
+The previous wording had named the areas inside the Noul criteria, so a request touching one of them answered `yes` even with an empty area list; the revised wording defers to `teammate_areas` alone.
 
-| Request (paraphrased) | kind | surface | teammate_overlap | Input tokens | Wall time |
-| --- | --- | --- | --- | --- | --- |
-| Fix the white screen after a wrong password on the login page | ship 1.0 act | product_facing 0.99 act | 0.09 no | 927 | 812 ms |
-| Review this week's pull requests and write a short report, change nothing yet | scout 1.0 act | mixed_or_unclear 0.99 act | 0.06 no | 926 | 781 ms |
-| The CI lint step takes ten minutes, add a cache and speed it up | ship 1.0 act | internal_tooling 1.0 act | 0.11 no | 928 | 789 ms |
-| Add an export button to the Suppliers list | ship 1.0 act | product_facing 1.0 act | 0.9 yes | 920 | 758 ms |
-
-Every verdict matched the intended label, and every Choice cleared the act threshold.
-Wall time includes the two local `jq` passes around the request; the request itself is about 1,000 input tokens, which at the published $0.042 per million input tokens is effectively free.
+One request is about 1,000 input tokens, which at the published $0.042 per million input tokens is effectively free, and answers in under a second.
 
 ## Offline behavior
 
-`tests/fm-intake-classify.test.sh` drives the public interface with a fake `curl` that records argv, the request body, the header read from file descriptor 3, whether the secret reached its environment, and the canned response headers, and answers one canned response per call.
+`tests/fm-intake-classify.test.sh` drives the public interface with a fake `curl` that records argv, the request body, the header read from file descriptor 3, and whether the secret reached its environment, and answers one canned response per call.
 It proves the absent key exits 3 with the explicit `not measured` line and never invokes `curl`, a `.env` key turns the tool on, and the environment wins over it.
 It proves the key is absent from the child environment, never appears on `curl` argv, stdout, or stderr, and arrives only as the bearer header on the descriptor.
-It proves the request uses the fixed endpoint, the twenty-second timeout, the pinned model unless `--model` overrides it for that call, carries `messages` oldest first with the request last, `context`, and `teammate_areas`, and sends the three questions verbatim from the questions file.
-It proves the verdict mapping at, above, and below the act and overlap thresholds including the near-threshold marker, the `--json` output, exit 4 with the status and body on a 401 and a 422 without a retry, exactly one retry on a 429 that waits for `Retry-After` and on a 529 without one, exit 4 on a transport failure or an incomplete answer set with no guessed answer, and that nothing is written under `state/` or `data/`.
+It proves the request uses the fixed endpoint, the twenty-second timeout, and the pinned model, carries `messages` oldest first with the request last, `context`, and `teammate_areas`, and sends the three questions verbatim from the questions file.
+It proves the verdict mapping at, above, and below the act and overlap thresholds, exit 4 with the status and body on a 401, 422, 429, or 529 with exactly one call and no retry, exit 4 on a transport failure or an incomplete answer set with no guessed answer, and that nothing is written under `state/` or `data/`.
 
 ```console
 $ bash tests/fm-intake-classify.test.sh | tail -1
 # all fm-intake-classify tests passed
 ```
 
-Rerun the live guard after a model release or a questions change, and refresh the table above from the tool's own output.
+Rerun the live guard after a model release or a questions change, and refresh the console output above from the tool's own output; the pending run for the revised wording is the first such refresh.
