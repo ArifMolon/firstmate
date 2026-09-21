@@ -1,0 +1,10 @@
+ok - absent key is reported explicitly with no request
+ok - usage errors exit 2 without a request
+ok - TYPESAFE_API_KEY= in .env activates the tool and the environment wins
+ok - request shape, fixed endpoint, fd-only key, and line output
+ok - stdin carries the request when no positional or --message is given
+ok - verdicts map at, above, and below the act and overlap thresholds
+ok - 401, 422, 429, and 529 exit 4 with the status and body on stderr and no retry
+ok - transport failures and malformed responses never yield a guessed answer
+ok - the tool keeps the home untouched
+# all fm-intake-classify tests passed

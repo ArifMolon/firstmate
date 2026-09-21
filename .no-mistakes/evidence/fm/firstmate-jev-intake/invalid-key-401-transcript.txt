@@ -1,0 +1,6 @@
+$ TYPESAFE_API_KEY=<invalid key> FM_HOME=<tmp> bin/fm-intake-classify.sh "login sayfasındaki hatayı düzelt"   (real api.typesafe.ai)
+stdout: []
+stderr: fm-intake-classify: request failed: HTTP 401 (missing or invalid key: fix TYPESAFE_API_KEY, do not retry): {"detail":{"error_type":"authentication_error","message":"Cannot authenticate with the server. Please check your API key and try again."}}
+exit=4  elapsed=2s
+invalid key string present in stdout+stderr: 0
+entries written under FM_HOME: 0

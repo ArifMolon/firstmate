@@ -1,0 +1,42 @@
+$ FM_HOME=<empty tmp dir> bin/fm-intake-classify.sh "login sayfasındaki hatayı düzelt"   (no key anywhere)
+not measured: TYPESAFE_API_KEY is not set
+exit=3
+
+$ echo "" | FM_HOME=<tmp> bin/fm-intake-classify.sh   (empty request text)
+fm-intake-classify: request text required (positional, --message, or stdin; see --help)
+exit=2
+
+$ bin/fm-intake-classify.sh --json "hatayı düzelt"   (removed flag)
+fm-intake-classify: unknown flag --json (see --help)
+exit=2
+
+$ bin/fm-intake-classify.sh --model jev-preview "hatayı düzelt"   (removed flag)
+fm-intake-classify: unknown flag --model (see --help)
+exit=2
+
+$ bin/fm-intake-classify.sh a b   (two request texts)
+fm-intake-classify: one request text only
+exit=2
+
+$ bin/fm-intake-classify.sh --help | head -12
+fm-intake-classify.sh - advisory intake classification of the captain's own
+words with typesafe.ai's System One model (Jev): the deliverable kind, the
+product surface, and teammate-area overlap, answered in one request.
+
+Usage:
+  fm-intake-classify.sh [--message <text>]... [--context <text>] [--area <name>]... [<request text>]
+  fm-intake-classify.sh < request.txt
+
+  --message <text>  one earlier captain message; repeat in order, oldest first.
+  <request text>    the current instruction, appended last; with no positional
+                    and no --message the current instruction is read from stdin.
+  --context <text>  background the assistant already knows (default empty).
+exit=0
+
+--- malformed questions file beside a copy of the script (thresholds.overlap missing) ---
+$ <copy>/fm-intake-classify.sh "hatayı düzelt"
+fm-intake-classify: questions file is malformed: /var/folders/4q/5__1gcfj5x54_tjm2_5s91280000gn/T/tmp.WUxhMW1oZW/bin/fm-intake-questions.json
+exit=2
+
+--- home left untouched ---
+0 entries under FM_HOME

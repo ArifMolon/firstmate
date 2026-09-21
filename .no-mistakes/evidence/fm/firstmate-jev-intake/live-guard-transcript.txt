@@ -1,0 +1,11 @@
+key loaded from operator env file (length 108 chars, never printed)
+$ FM_LIVE_TYPESAFE=1 bash tests/fm-intake-classify-live-e2e.test.sh
+key occurrences in guard output: 0
+ok - fix request: kind=ship confidence=1.0 verdict=act
+ok - report request: kind=scout confidence=1.0 verdict=act
+ok - export button with Suppliers listed: surface=product_facing confidence=1.0 verdict=act teammate_overlap=0.9 verdict=yes 
+ok - export button with no areas: teammate_overlap=0.04 verdict=no
+model: jev-1.13.0
+# all fm-intake-classify-live-e2e tests passed
+exit=0
+entries written under FM_HOME: 0

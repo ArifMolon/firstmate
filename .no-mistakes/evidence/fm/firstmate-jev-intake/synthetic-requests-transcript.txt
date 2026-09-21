@@ -1,0 +1,128 @@
+date: 2026-09-21T17:47:16Z  commit: aeac352
+
+## 1a fix login white screen, areas listed
+$ bin/fm-intake-classify.sh --area Suppliers --area Packaging --area declarations login sayfasında şifre yanlış girilince beyaz ekran geliyor, lütfen bu hatayı düzelt
+model=jev-1.13.0
+input_tokens=922
+kind=ship confidence=1.0 verdict=act
+surface=product_facing confidence=1.0 verdict=act
+teammate_overlap=0.09 verdict=no
+exit=0
+elapsed=0.86s
+
+## 1b fix login white screen, no areas
+$ bin/fm-intake-classify.sh login sayfasında şifre yanlış girilince beyaz ekran geliyor, lütfen bu hatayı düzelt
+model=jev-1.13.0
+input_tokens=905
+kind=ship confidence=1.0 verdict=act
+surface=product_facing confidence=1.0 verdict=act
+teammate_overlap=0.04 verdict=no
+exit=0
+elapsed=0.84s
+
+## 2a review PRs and report, areas listed
+$ bin/fm-intake-classify.sh --area Suppliers --area Packaging --area declarations bu haftaki pull requestleri incele ve bana kısa bir rapor yaz, henüz hiçbir şey değiştirme
+model=jev-1.13.0
+input_tokens=921
+kind=scout confidence=1.0 verdict=act
+surface=mixed_or_unclear confidence=0.99 verdict=act
+teammate_overlap=0.04 verdict=no
+exit=0
+elapsed=0.99s
+
+## 2b review PRs and report, no areas
+$ bin/fm-intake-classify.sh bu haftaki pull requestleri incele ve bana kısa bir rapor yaz, henüz hiçbir şey değiştirme
+model=jev-1.13.0
+input_tokens=904
+kind=scout confidence=1.0 verdict=act
+surface=mixed_or_unclear confidence=0.99 verdict=act
+teammate_overlap=0.04 verdict=no
+exit=0
+elapsed=0.88s
+
+## 3a speed up CI lint with cache, areas listed
+$ bin/fm-intake-classify.sh --area Suppliers --area Packaging --area declarations CI lint adımı on dakika sürüyor, bir cache ekleyip hızlandır
+model=jev-1.13.0
+input_tokens=917
+kind=ship confidence=1.0 verdict=act
+surface=internal_tooling confidence=1.0 verdict=act
+teammate_overlap=0.14 verdict=no
+exit=0
+elapsed=2.16s
+
+## 3b speed up CI lint with cache, no areas
+$ bin/fm-intake-classify.sh CI lint adımı on dakika sürüyor, bir cache ekleyip hızlandır
+model=jev-1.13.0
+input_tokens=900
+kind=ship confidence=1.0 verdict=act
+surface=internal_tooling confidence=1.0 verdict=act
+teammate_overlap=0.04 verdict=no
+exit=0
+elapsed=0.88s
+
+## 4a export button on Suppliers list, areas listed
+$ bin/fm-intake-classify.sh --area Suppliers --area Packaging --area declarations tedarikçi (Suppliers) listesine dışa aktarma butonu ekle
+model=jev-1.13.0
+input_tokens=915
+kind=ship confidence=1.0 verdict=act
+surface=product_facing confidence=0.99 verdict=act
+teammate_overlap=0.89 verdict=yes
+exit=0
+elapsed=0.95s
+
+## 4b export button on Suppliers list, no areas
+$ bin/fm-intake-classify.sh tedarikçi (Suppliers) listesine dışa aktarma butonu ekle
+model=jev-1.13.0
+input_tokens=898
+kind=ship confidence=1.0 verdict=act
+surface=product_facing confidence=1.0 verdict=act
+teammate_overlap=0.04 verdict=no
+exit=0
+elapsed=0.84s
+
+## adversarial: Suppliers work with only other teammates' areas listed (must be no)
+
+## 4c export button on Suppliers list, areas Packaging+declarations only
+$ bin/fm-intake-classify.sh --area Packaging --area declarations tedarikçi (Suppliers) listesine dışa aktarma butonu ekle
+model=jev-1.13.0
+input_tokens=909
+kind=ship confidence=1.0 verdict=act
+surface=product_facing confidence=0.99 verdict=act
+teammate_overlap=0.2 verdict=no
+exit=0
+elapsed=1.02s
+
+## adversarial: multi-message thread, last message is the captain approving a merge (answer_or_instruction)
+
+## 5 merge approval after earlier fix request
+$ bin/fm-intake-classify.sh --message login hatasını düzelt --message PR açıldı, incele --context PR #77 is open and green tamam, merge et
+model=jev-1.13.0
+input_tokens=915
+kind=answer_or_instruction confidence=1.0 verdict=act
+surface=product_facing confidence=0.42 verdict=ask
+teammate_overlap=0.04 verdict=no
+exit=0
+elapsed=0.87s
+
+## adversarial: decision question addressed to the captain
+
+## 6 assistant-style options message
+$ bin/fm-intake-classify.sh İki seçenek var: A) cache ekleyelim, B) runner büyütelim. Hangisini istersin?
+model=jev-1.13.0
+input_tokens=905
+kind=decision confidence=0.94 verdict=act
+surface=internal_tooling confidence=0.95 verdict=act
+teammate_overlap=0.04 verdict=no
+exit=0
+elapsed=0.87s
+
+## adversarial: stdin delivery with .env key instead of environment
+$ printf "%s" "<R1>" | env -u TYPESAFE_API_KEY FM_HOME=<tmp with .env> bin/fm-intake-classify.sh
+model=jev-1.13.0
+input_tokens=905
+kind=ship confidence=1.0 verdict=act
+surface=product_facing confidence=1.0 verdict=act
+teammate_overlap=0.04 verdict=no
+exit=0
+
+entries written under FM_HOME after all runs: 0
