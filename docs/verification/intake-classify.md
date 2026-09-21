@@ -13,9 +13,11 @@ Verified 2026-09-21 that a `jev-1.13.0` request answers as `jev-1.13.0`, so the 
 
 ## Live verdicts
 
-The `kind` question is unchanged since the run below; the `surface` and `teammate_overlap` wording and the overlap threshold were revised on 2026-09-21 after review, so the guard's console output and the table need a fresh keyed run before they describe the shipped questions.
+The live guard `tests/fm-intake-classify-live-e2e.test.sh` covers `kind`, `surface`, and `teammate_overlap`: a fix request and a report request for `kind`, and an export-button request for a Suppliers list run once with Suppliers among the teammate areas and once with no areas for `surface` and `teammate_overlap`.
+The `surface` and `teammate_overlap` wording and the 0.70 overlap threshold were revised on 2026-09-21 after review; the `kind` question is unchanged from the trial.
 
-Run 2026-09-21 with `FM_LIVE_TYPESAFE=1 bash tests/fm-intake-classify-live-e2e.test.sh`, the key exported from a private env file for that one shell, model pinned at `jev-1.13.0`, act threshold 0.70, against the `kind` question as shipped:
+Measured 2026-09-21 on commit `158236d1`, which carries the revised questions, by the review phase of the pipeline run that produced that commit, with the key exported for that one shell, model pinned at `jev-1.13.0`, act threshold 0.70, overlap threshold 0.70.
+The guard at that commit asserted only the two `kind` cases; the `surface` and `teammate_overlap` cases were added to it afterwards and were exercised in the same session by running the tool directly, as the table below records.
 
 ```console
 $ FM_LIVE_TYPESAFE=1 bash tests/fm-intake-classify-live-e2e.test.sh
@@ -25,8 +27,17 @@ model: jev-1.13.0
 # all fm-intake-classify-live-e2e tests passed
 ```
 
-The revised `surface` and `teammate_overlap` wording was re-measured the same day by the author on the 18-request trial set that set the thresholds: the overlap Noul answered 0.87 on the two requests that touched a listed area, at most 0.56 on requests that touched none, and 0.04 to 0.05 with an empty `teammate_areas` list.
-The earlier 0.50 overlap cut sat inside a noisy 0.44 to 0.56 band on that set; 0.70 separates the two groups cleanly, which is why `thresholds.overlap` is 0.70.
+Four synthetic Turkish requests run through the tool directly in that session, each twice: with `--area Suppliers --area Packaging --area declarations`, and with no area.
+
+| Request (paraphrased) | kind | surface | overlap, areas listed | overlap, no areas | Input tokens |
+| --- | --- | --- | --- | --- | --- |
+| Fix the white screen after a wrong password on the login page | ship 1.0 act | product_facing 1.0 act | 0.09 no | 0.04 no | 941 / 924 |
+| Review this week's pull requests and write a short report, change nothing yet | scout 1.0 act | mixed_or_unclear 0.99 act | 0.04 no | 0.04 no | 940 / 923 |
+| The CI lint step takes ten minutes, add a cache and speed it up | ship 1.0 act | internal_tooling 1.0 act | 0.16 no | 0.04 no | 942 / 925 |
+| Add an export button to the Suppliers list | ship 1.0 act | product_facing 1.0 act | 0.91 yes | 0.04 no | 934 / 917 |
+
+Every verdict matched the intended label, every Choice cleared the act threshold, and the export-button request answered `yes` only when Suppliers was among the listed areas, which is the behaviour the revised wording exists to guarantee.
+On the author's 18-request trial set the revised overlap Noul answered 0.87 on the two requests that touched a listed area, at most 0.56 on requests that touched none, and 0.04 to 0.05 with an empty area list; the earlier 0.50 cut sat inside a noisy 0.44 to 0.56 band, and 0.70 separates the two groups cleanly, which is why `thresholds.overlap` is 0.70.
 The previous wording had named the areas inside the Noul criteria, so a request touching one of them answered `yes` even with an empty area list; the revised wording defers to `teammate_areas` alone.
 
 One request is about 1,000 input tokens, which at the published $0.042 per million input tokens is effectively free, and answers in under a second.
@@ -44,4 +55,4 @@ $ bash tests/fm-intake-classify.test.sh | tail -1
 # all fm-intake-classify tests passed
 ```
 
-Rerun the live guard after a model release or a questions change, and refresh the console output above from the tool's own output; the pending run for the revised wording is the first such refresh.
+Rerun the live guard after a model release or a questions change, and refresh the console block and table above from its output; the next keyed run is the first to print the guard's own `surface` and `teammate_overlap` lines.
