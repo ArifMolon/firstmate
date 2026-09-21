@@ -1,0 +1,37 @@
+{
+  "model": "jev-1.13.0",
+  "thresholds": {"act": 0.70, "overlap": 0.50},
+  "questions": {
+    "kind": {
+      "type": "choice",
+      "instructions": "`messages` are the product owner (the captain) messages to his engineering assistant, oldest first, in Turkish; the last one is the current instruction and overrides earlier ones. `context` is background the assistant already knows. Which kind of work does the LAST message call for?",
+      "criteria": {
+        "ship": "asks for a change to be made in the repository: fix, implement, add, remove, regenerate, resolve a conflict, or open a pull request; the outcome is changed code, configuration, documentation or CI. Merging or approving an already open pull request is NOT ship.",
+        "scout": "asks for investigation, analysis, a summary, a review of existing work, a report, or an experiment; no code change is requested yet",
+        "decision": "the message itself lays out options for the captain to choose between; it is a question addressed to the captain, not a request from him",
+        "answer_or_instruction": "the captain answers an earlier question, tells the assistant to merge or approve an already open pull request, reports that he merged, or states a rule; no new repository change is requested",
+        "other": null
+      }
+    },
+    "surface": {
+      "type": "choice",
+      "instructions": "If the work in `request` and `context` is carried out, which part of the carbonorm product does it change?",
+      "criteria": {
+        "internal_tooling": "only CI workflows, deploy automation, GitHub Actions runners, contributor knowledge docs, test baselines or exemption files, generated process-graph artifacts, or scripts that users never see",
+        "product_facing": "behaviour that users see: the admin console UI, the tenant application UI, or the public API's responses and validation",
+        "mixed_or_unclear": "both kinds, or the request does not describe a code change at all"
+      }
+    },
+    "teammate_overlap": {
+      "type": "noul",
+      "instructions": {
+        "statement": "Carrying out the work in `request` and `context` would change one of the code areas listed in `teammate_areas`, which a teammate is currently working on.",
+        "note": "Only the areas literally listed count. CI, deploy automation, process-graph docs and impersonation are not in the list."
+      },
+      "criteria": {
+        "true": "the work changes Suppliers, Packaging, declarations, Regulation markets, admin roles and permissions, or the onboarding entry or market declaration flow",
+        "false": "the work changes none of those areas, or requests no code change"
+      }
+    }
+  }
+}

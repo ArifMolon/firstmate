@@ -547,6 +547,22 @@ The resolver sends the key to `curl` only as a header read from a file descripto
 The resolver fixes the endpoint at `https://api.typesafe.ai`, model at `jev-latest`, confidence floor at 0.6, and request timeout at 5 seconds; `TYPESAFE_API_KEY` is its only resolver-specific environment setting.
 The live rule-match evidence is recorded in [`verification/dispatch-resolve.md`](verification/dispatch-resolve.md).
 
+## Intake classification (.env TYPESAFE_API_KEY)
+
+`bin/fm-intake-classify.sh` answers three intake questions about the captain's own words with the same typesafe.ai System One model (Jev) in one request: which deliverable the request calls for (`ship`, `scout`, `decision`, `answer_or_instruction`, or `other`), which product surface the work changes (`internal_tooling`, `product_facing`, or `mixed_or_unclear`, the call behind `direct-PR` versus `no-mistakes` on a `no-mistakes-prod-only` project), and whether the work touches a code area a teammate is currently working on, judged over the area list passed on the command line.
+It is advisory only: it informs those three calls at intake, never acts on its own, and never overrides an explicit captain instruction or `AGENTS.md` section 7, which owns what firstmate does with each verdict.
+This section is the single owner of the classifier's operator contract; the script header owns its exact flags, output lines, and exit codes.
+The key lives where "Typed dispatch resolution" above says, with the same environment-first precedence and the same secret handling; an absent key exits with an explicit `not measured` line rather than being passed over, because the classifier reports evidence and a silent skip would read as evidence.
+Questions, the model pin, and the verdict thresholds live in [`bin/fm-intake-questions.json`](../bin/fm-intake-questions.json): the model is pinned at `jev-1.13.0` because the thresholds were measured on it, a Choice answer is `act` at confidence 0.70 or above and `ask` below, and the teammate-overlap probability is `yes` at 0.50 or above with a near-threshold marker within 0.15 of that line.
+Move the pin only with a fresh measurement, and read `--model` as a one-call experiment rather than a new pin.
+One request costs about 1,000 input tokens at the published $0.042 per million, so the classifier is effectively free to run on every intake.
+
+```sh
+bin/fm-intake-classify.sh --context '<what the assistant already knows>' --area Suppliers --area Packaging '<the captain'"'"'s words>'
+```
+
+The live verdict evidence is recorded in [`verification/intake-classify.md`](verification/intake-classify.md).
+
 ## Toolchain
 
 On session start the first mate detects what its required toolchain is missing or too old and lists each problem with either an exact install command or manual instructions.
@@ -1156,7 +1172,7 @@ FMX_RELAY_URL=https://myfirstmate.io   # optional Relay endpoint override, mainl
 FMX_ENV_FILE=           # optional alternate .env file for direct Relay client invocations; bootstrap still checks $FM_HOME/.env
 FMX_DRY_RUN=            # truthy previews Relay replies and dismissals to state/x-outbox/ without posting or requiring a token
 FMX_X_REPLY_MAX_CHARS=280   # X reply per-message split budget; values below 50 clamp to 50
-TYPESAFE_API_KEY=       # typed dispatch resolution opt-in, from the environment or .env; absent means bin/fm-dispatch-resolve.sh is off (docs/configuration.md "Typed dispatch resolution")
+TYPESAFE_API_KEY=       # typed dispatch resolution and intake classification opt-in, from the environment or .env; absent means bin/fm-dispatch-resolve.sh is off and bin/fm-intake-classify.sh reports not measured (docs/configuration.md "Typed dispatch resolution" and "Intake classification")
 FMX_DISCORD_REPLY_MAX_CHARS=1900   # Discord reply per-message split budget; values below 50 clamp to 50, values above 2000 reset to 1900
 FMX_X_THREAD_MAX=25     # maximum messages in one auto-split reply thread
 FMX_FOLLOWUP_MAX_AGE_SECS=604800   # local window for posting Relay completion follow-ups (7 days)
