@@ -1,0 +1,37 @@
+{
+  "model": "jev-1.13.0",
+  "thresholds": {"act": 0.70, "overlap": 0.70},
+  "questions": {
+    "kind": {
+      "type": "choice",
+      "instructions": "`messages` are the product owner (the captain) messages to his engineering assistant, oldest first, in Turkish; the last one is the current instruction and overrides earlier ones. `context` is background the assistant already knows. Which kind of work does the LAST message call for?",
+      "criteria": {
+        "ship": "asks for a change to be made in the repository: fix, implement, add, remove, regenerate, resolve a conflict, or open a pull request; the outcome is changed code, configuration, documentation or CI. Merging or approving an already open pull request is NOT ship.",
+        "scout": "asks for investigation, analysis, a summary, a review of existing work, a report, or an experiment; no code change is requested yet",
+        "decision": "the message itself lays out options for the captain to choose between; it is a question addressed to the captain, not a request from him",
+        "answer_or_instruction": "the captain answers an earlier question, tells the assistant to merge or approve an already open pull request, reports that he merged, or states a rule; no new repository change is requested",
+        "other": null
+      }
+    },
+    "surface": {
+      "type": "choice",
+      "instructions": "If the work that the last element of `messages` asks for, read together with `context`, is carried out, which part of the product does it change?",
+      "criteria": {
+        "internal_tooling": "only CI workflows, deploy automation, build or runner configuration, contributor or knowledge documentation, test baselines or exemption files, generated artifacts, or scripts that end users never see",
+        "product_facing": "behaviour that end users see: a user-facing or admin user interface, or a public API's responses and validation",
+        "mixed_or_unclear": "both kinds, or the request does not describe a code change at all"
+      }
+    },
+    "teammate_overlap": {
+      "type": "noul",
+      "instructions": {
+        "statement": "Carrying out the work that the last element of `messages` asks for, read together with `context`, would change at least one of the code areas listed in `teammate_areas`, which a teammate is currently working on.",
+        "note": "Only areas literally listed in `teammate_areas` count. When `teammate_areas` is empty, the statement is false."
+      },
+      "criteria": {
+        "true": "the work changes code in an area named in `teammate_areas`",
+        "false": "`teammate_areas` is empty, the work changes none of the listed areas, or no code change is requested"
+      }
+    }
+  }
+}
